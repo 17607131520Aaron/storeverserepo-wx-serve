@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
 
-// import { UserModule } from '@/modules/user.modules';
+import { UserModule } from '@/modules/user.modules';
 import { databaseConfig } from '@/config/database.config';
 
 // 拦截器模块
@@ -39,6 +39,7 @@ import { rabbitmqConfig } from '@/config/rabbitmq.config';
     }),
     TypeOrmModule.forRoot(databaseConfig), // 全局配置数据库连接
     AuthModule,
+    UserModule,
     RabbitMQModule.forRoot(rabbitmqConfig),
     RedisModule,
   ],
