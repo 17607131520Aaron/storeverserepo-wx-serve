@@ -113,6 +113,15 @@ export class UserInfoServiceImpl implements IUserInfoService {
   }
 
   /**
+   * 通过用户名查找用户信息
+   */
+  public async findByUsername(username: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { username },
+    });
+  }
+
+  /**
    * 调用微信code2Session接口获取openid和session_key
    */
   private async code2Session(code: string): Promise<WechatCode2SessionResponse> {

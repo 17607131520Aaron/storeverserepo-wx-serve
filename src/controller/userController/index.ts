@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Inject, Post, Request, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Query, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { Public } from '@/auth/public.decorator';
+import { useDto } from '@/decorators/use-dto.decorator';
 import type { IUserInfoService } from '@/services/userinfo.interface';
-import { WechatLoginDto, WechatRegisterDto } from '@/dto/userinfo.dto';
-import type { JwtPayload } from '@/auth/auth.service';
+import type { User } from '@/entity/user.entity';
+import { WechatLoginDto, WechatRegisterDto, GetUserInfoDto } from './request.dto';
+import { LoginResponseDto, RegisterResponseDto, UserInfoResponseDto } from './response.dto';
 
 @Controller('userinfo')
 export class UserController {
@@ -13,12 +15,10 @@ export class UserController {
    */
   @Post('login')
   @Public()
-  public async login(@Body() loginDto: WechatLoginDto) {
+  @useDto(LoginResponseDto)
+  public async login(@Body() loginDto: WechatLoginDto): Promise<LoginResponseDto> {
     const token = await this.userinfoService.wechatLogin(loginDto.code);
-    return {
-      token: token.token,
-      expiresIn: token.expiresIn,
-    };
+    return token as LoginResponseDto;
   }
 
   /**
@@ -26,46 +26,49 @@ export class UserController {
    */
   @Post('register')
   @Public()
-  public async register(@Body() registerDto: WechatRegisterDto) {
-    const token = await this.userinfoService.wechatRegister(
+  @useDto(RegisterResponseDto)
+  public async register(@Body() registerDto: WechatRegisterDto): Promise<RegisterResponseDto> {
+    await this.userinfoService.wechatRegister(
       registerDto.code,
       registerDto.nickName,
       registerDto.avatarUrl,
     );
-    return {
-      token: token.token,
-      expiresIn: token.expiresIn,
-    };
+
+    const result: RegisterResponseDto = { message: '注册成功' };
+    return result;
   }
 
   /**
-   * 查询当前登录用户信息
+   * 查询用户信息
+   * 支持通过ID或用户名查询
    */
-  @Get('profile')
-  public async getProfile(@Request() req: Request & { user?: JwtPayload }) {
-    const userPayload = req.user;
-    if (!userPayload) {
-      throw new UnauthorizedException('未找到用户信息');
+  @Get('info')
+  @Public()
+  @useDto(UserInfoResponseDto)
+  public async getUserInfo(@Query() queryDto: GetUserInfoDto): Promise<UserInfoResponseDto> {
+    // 至少需要提供一个查询参数
+    if (!queryDto.id && !queryDto.username) {
+      throw new BadRequestException('请提供用户ID或用户名');
     }
 
-    const user = await this.userinfoService.findById(userPayload.sub);
+    let user: User | null = null;
+
+    // 优先使用ID查询
+    if (queryDto.id) {
+      const userId = Number.parseInt(queryDto.id, 10);
+      if (Number.isNaN(userId)) {
+        throw new BadRequestException('用户ID格式不正确');
+      }
+      user = await this.userinfoService.findById(userId);
+    } else if (queryDto.username) {
+      // 使用用户名查询
+      user = await this.userinfoService.findByUsername(queryDto.username);
+    }
+
     if (!user) {
       throw new UnauthorizedException('用户不存在');
     }
 
-    // 返回用户信息，排除敏感字段
-    return {
-      id: user.id,
-      username: user.username,
-      realName: user.realName,
-      email: user.email,
-      phone: user.phone,
-      wechatOpenId: user.wechatOpenId,
-      wechatNickName: user.wechatNickName,
-      wechatAvatarUrl: user.wechatAvatarUrl,
-      status: user.status,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    return user as UserInfoResponseDto;
   }
 }

@@ -39,4 +39,11 @@ export interface IUserInfoService {
    * @returns 用户信息
    */
   findById(userId: number): Promise<User | null>;
+
+  /**
+   * 通过用户名查找用户信息
+   * @param username 用户名
+   * @returns 用户信息
+   */
+  findByUsername(username: string): Promise<User | null>;
 }
