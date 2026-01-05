@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -32,6 +33,10 @@ export class WechatRegisterDto {
   @IsString()
   @IsOptional()
   public avatarUrl?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  public autoLogin?: boolean; // 是否自动登录，为true时返回token
 }
 
 /**

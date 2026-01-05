@@ -32,18 +32,20 @@ export class UserController {
 
   /**
    * 微信注册接口
+   * 微信注册成功后默认自动登录（返回token），因为微信code只能使用一次
    */
   @Post('wechatRegister')
   @Public()
-  @useDto(RegisterResponseDto)
-  public async register(@Body() registerDto: WechatRegisterDto): Promise<RegisterResponseDto> {
-    await this.userinfoService.wechatRegister({
+  @useDto(LoginResponseDto)
+  public async register(@Body() registerDto: WechatRegisterDto): Promise<LoginResponseDto> {
+    const token = await this.userinfoService.wechatRegister({
       code: registerDto.code,
       nickName: registerDto.nickName,
       avatarUrl: registerDto.avatarUrl,
     });
 
-    return { message: '注册成功' };
+    // 微信注册后默认返回token（自动登录）
+    return token as LoginResponseDto;
   }
 
   /**
