@@ -35,14 +35,14 @@ export class RedisController {
         status: 'healthy',
         message: 'Redis服务正常运行',
         timestamp: new Date().toISOString(),
-        ping: ping,
+        ping,
       };
     } else {
       return {
         status: 'unhealthy',
         message: 'Redis服务异常',
         timestamp: new Date().toISOString(),
-        ping: ping,
+        ping,
       };
     }
   }
