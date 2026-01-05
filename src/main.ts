@@ -26,6 +26,11 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // 设置全局前缀
+  const globalPrefix = '/storeverserepo/wx';
+  app.setGlobalPrefix(globalPrefix);
+
   const config = app.get(ConfigService);
   const env = getEnvFromConfig(config.get<string>('NODE_ENV'));
   const port = getPortFromConfig(config.get<string>('SERVICE_PORT'), 3000);
@@ -64,9 +69,9 @@ async function bootstrap() {
     );
 
     console.log(`📚 API 文档已启动：`);
-    console.log(`   Swagger UI: http://localhost:${port}/api`);
+    // console.log(`   Swagger UI: http://localhost:${port}/api`);
     console.log(`   Scalar UI:  http://localhost:${port}/api-docs`);
-    console.log(`   OpenAPI JSON: http://localhost:${port}/api-json`);
+    // console.log(`   OpenAPI JSON: http://localhost:${port}/api-json`);
   }
   // const port = 3000;
 
@@ -77,6 +82,6 @@ async function bootstrap() {
   console.log('Resolved port:', port);
 
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}  (env=${env})`);
+  console.log(`Application is running on: http://localhost:${port}${globalPrefix}  (env=${env})`);
 }
 void bootstrap();
