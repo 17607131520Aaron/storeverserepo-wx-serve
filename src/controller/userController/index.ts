@@ -28,7 +28,7 @@ export class UserController {
   /**
    * 微信登录接口
    */
-  @Post('login')
+  @Post('wechatLogin')
   @Public()
   @useDto(LoginResponseDto)
   public async login(@Body() loginDto: WechatLoginDto): Promise<LoginResponseDto> {
@@ -39,7 +39,7 @@ export class UserController {
   /**
    * 微信注册接口
    */
-  @Post('register')
+  @Post('wechatRegister')
   @Public()
   @useDto(RegisterResponseDto)
   public async register(@Body() registerDto: WechatRegisterDto): Promise<RegisterResponseDto> {
@@ -56,7 +56,7 @@ export class UserController {
   /**
    * PC端登录接口
    */
-  @Post('pc/login')
+  @Post('userLogin')
   @Public()
   @useDto(LoginResponseDto)
   public async pcLogin(@Body() loginDto: PcLoginDto): Promise<LoginResponseDto> {
@@ -70,7 +70,7 @@ export class UserController {
   /**
    * PC端注册接口
    */
-  @Post('pc/register')
+  @Post('registerUser')
   @Public()
   @useDto(RegisterResponseDto)
   public async pcRegister(@Body() registerDto: PcRegisterDto): Promise<RegisterResponseDto> {
