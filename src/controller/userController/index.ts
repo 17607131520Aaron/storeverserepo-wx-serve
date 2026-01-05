@@ -1,9 +1,24 @@
-import { Body, Controller, Get, Inject, Post, Query, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { Public } from '@/auth/public.decorator';
 import { useDto } from '@/decorators/use-dto.decorator';
-import type { IUserInfoService } from '@/services/userinfo.interface';
 import type { User } from '@/entity/user.entity';
-import { WechatLoginDto, WechatRegisterDto, GetUserInfoDto } from './request.dto';
+import type { IUserInfoService } from '@/services/userinfo.interface';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  GetUserInfoDto,
+  PcLoginDto,
+  PcRegisterDto,
+  WechatLoginDto,
+  WechatRegisterDto,
+} from './request.dto';
 import { LoginResponseDto, RegisterResponseDto, UserInfoResponseDto } from './response.dto';
 
 @Controller('userinfo')
@@ -28,11 +43,49 @@ export class UserController {
   @Public()
   @useDto(RegisterResponseDto)
   public async register(@Body() registerDto: WechatRegisterDto): Promise<RegisterResponseDto> {
-    await this.userinfoService.wechatRegister(
-      registerDto.code,
-      registerDto.nickName,
-      registerDto.avatarUrl,
-    );
+    await this.userinfoService.wechatRegister({
+      code: registerDto.code,
+      nickName: registerDto.nickName,
+      avatarUrl: registerDto.avatarUrl,
+    });
+
+    const result: RegisterResponseDto = { message: '注册成功' };
+    return result;
+  }
+
+  /**
+   * PC端登录接口
+   */
+  @Post('pc/login')
+  @Public()
+  @useDto(LoginResponseDto)
+  public async pcLogin(@Body() loginDto: PcLoginDto): Promise<LoginResponseDto> {
+    const token = await this.userinfoService.pcLogin({
+      username: loginDto.username,
+      password: loginDto.password,
+    });
+    return token as LoginResponseDto;
+  }
+
+  /**
+   * PC端注册接口
+   */
+  @Post('pc/register')
+  @Public()
+  @useDto(RegisterResponseDto)
+  public async pcRegister(@Body() registerDto: PcRegisterDto): Promise<RegisterResponseDto> {
+    // 验证确认密码是否一致
+    if (registerDto.password !== registerDto.confirmPassword) {
+      throw new BadRequestException('两次输入的密码不一致');
+    }
+
+    await this.userinfoService.pcRegister({
+      username: registerDto.username,
+      password: registerDto.password,
+      realName: registerDto.realName,
+      email: registerDto.email,
+      phone: registerDto.phone,
+    });
 
     const result: RegisterResponseDto = { message: '注册成功' };
     return result;

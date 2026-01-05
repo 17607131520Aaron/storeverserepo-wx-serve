@@ -1,13 +1,20 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import type { Observable } from 'rxjs';
 import { AuthService, type LoginToken } from '@/auth/auth.service';
 import { User } from '@/entity/user.entity';
-import type { IUserInfoService, WechatCode2SessionResponse } from '@/services/userinfo.interface';
+import type {
+  IUserInfoService,
+  PcLoginParams,
+  PcRegisterParams,
+  WechatCode2SessionResponse,
+  WechatRegisterParams,
+} from '@/services/userinfo.interface';
+import { HttpService } from '@nestjs/axios';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
+import type { Observable } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class UserInfoServiceImpl implements IUserInfoService {
@@ -50,13 +57,9 @@ export class UserInfoServiceImpl implements IUserInfoService {
   /**
    * 微信注册
    */
-  public async wechatRegister(
-    code: string,
-    nickName?: string,
-    avatarUrl?: string,
-  ): Promise<LoginToken> {
+  public async wechatRegister(params: WechatRegisterParams): Promise<LoginToken> {
     // 1. 调用微信接口获取openid
-    const sessionData = await this.code2Session(code);
+    const sessionData = await this.code2Session(params.code);
     const openid = sessionData.openid;
 
     // 2. 检查用户是否已存在
@@ -77,8 +80,8 @@ export class UserInfoServiceImpl implements IUserInfoService {
     const newUserData: Partial<User> = {
       username: `wx_${openid.substring(0, 10)}_${Date.now()}`, // 生成唯一用户名
       wechatOpenId: openid,
-      wechatNickName: nickName ?? undefined,
-      wechatAvatarUrl: avatarUrl ?? undefined,
+      wechatNickName: params.nickName ?? undefined,
+      wechatAvatarUrl: params.avatarUrl ?? undefined,
       password: '', // 微信登录不需要密码
       status: 1, // 默认启用
     };
@@ -122,6 +125,88 @@ export class UserInfoServiceImpl implements IUserInfoService {
   }
 
   /**
+   * PC端登录
+   */
+  public async pcLogin(params: PcLoginParams): Promise<LoginToken> {
+    // 1. 查找用户
+    const user = await this.findByUsername(params.username);
+    if (!user) {
+      throw new UnauthorizedException('账号或密码错误');
+    }
+
+    // 2. 检查账号状态
+    if (user.status !== 1) {
+      throw new UnauthorizedException('账号已被禁用，请联系管理员');
+    }
+
+    // 3. 验证密码
+    // 如果用户没有设置密码（可能是微信用户），则不允许PC端登录
+    if (!user.password) {
+      throw new UnauthorizedException('该账号未设置密码，请使用微信登录');
+    }
+
+    const isPasswordValid = await bcrypt.compare(params.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('账号或密码错误');
+    }
+
+    // 4. 生成JWT token
+    const token = await this.authService.signUser({
+      sub: user.id,
+      username: user.username,
+    });
+
+    return token;
+  }
+
+  /**
+   * PC端注册
+   */
+  public async pcRegister(params: PcRegisterParams): Promise<void> {
+    // 1. 检查账号是否已存在
+    const existingUser = await this.findByUsername(params.username);
+    if (existingUser) {
+      throw new BadRequestException('该账号已被注册，请使用其他账号');
+    }
+
+    // 2. 如果提供了邮箱，检查邮箱是否已被使用
+    if (params.email) {
+      const existingEmailUser = await this.userRepository.findOne({
+        where: { email: params.email },
+      });
+      if (existingEmailUser) {
+        throw new BadRequestException('该邮箱已被注册');
+      }
+    }
+
+    // 3. 如果提供了手机号，检查手机号是否已被使用
+    if (params.phone) {
+      const existingPhoneUser = await this.userRepository.findOne({
+        where: { phone: params.phone },
+      });
+      if (existingPhoneUser) {
+        throw new BadRequestException('该手机号已被注册');
+      }
+    }
+
+    // 4. 加密密码
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(params.password, saltRounds);
+
+    // 5. 创建新用户
+    const newUserData: Partial<User> = {
+      username: params.username,
+      password: hashedPassword,
+      realName: params.realName,
+      email: params.email ?? undefined,
+      phone: params.phone ?? undefined,
+      status: 1, // 默认启用
+    };
+    const newUser = this.userRepository.create(newUserData);
+    await this.userRepository.save(newUser);
+  }
+
+  /**
    * 调用微信code2Session接口获取openid和session_key
    */
   private async code2Session(code: string): Promise<WechatCode2SessionResponse> {
@@ -142,7 +227,9 @@ export class UserInfoServiceImpl implements IUserInfoService {
 
     try {
       const httpCall = this.httpService.get<WechatCode2SessionResponse>(url, { params });
-      const response = await firstValueFrom(httpCall as Observable<{ data: WechatCode2SessionResponse }>);
+      const response = await firstValueFrom(
+        httpCall as Observable<{ data: WechatCode2SessionResponse }>,
+      );
 
       const data = response.data;
 
@@ -167,4 +254,3 @@ export class UserInfoServiceImpl implements IUserInfoService {
     }
   }
 }
-

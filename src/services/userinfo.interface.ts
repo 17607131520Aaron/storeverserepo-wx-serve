@@ -1,5 +1,5 @@
-import type { User } from '@/entity/user.entity';
 import type { LoginToken } from '@/auth/auth.service';
+import type { User } from '@/entity/user.entity';
 
 export interface WechatCode2SessionResponse {
   openid: string;
@@ -7,6 +7,34 @@ export interface WechatCode2SessionResponse {
   unionid?: string;
   errcode?: number;
   errmsg?: string;
+}
+
+/**
+ * 微信注册参数
+ */
+export interface WechatRegisterParams {
+  code: string;
+  nickName?: string;
+  avatarUrl?: string;
+}
+
+/**
+ * PC端登录参数
+ */
+export interface PcLoginParams {
+  username: string;
+  password: string;
+}
+
+/**
+ * PC端注册参数
+ */
+export interface PcRegisterParams {
+  username: string;
+  password: string;
+  realName: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface IUserInfoService {
@@ -19,12 +47,23 @@ export interface IUserInfoService {
 
   /**
    * 微信注册
-   * @param code 微信小程序登录code
-   * @param nickName 微信昵称（可选）
-   * @param avatarUrl 微信头像（可选）
+   * @param params 微信注册参数
    * @returns 登录token
    */
-  wechatRegister(code: string, nickName?: string, avatarUrl?: string): Promise<LoginToken>;
+  wechatRegister(params: WechatRegisterParams): Promise<LoginToken>;
+
+  /**
+   * PC端登录
+   * @param params PC端登录参数
+   * @returns 登录token
+   */
+  pcLogin(params: PcLoginParams): Promise<LoginToken>;
+
+  /**
+   * PC端注册
+   * @param params PC端注册参数
+   */
+  pcRegister(params: PcRegisterParams): Promise<void>;
 
   /**
    * 通过openid查找用户
