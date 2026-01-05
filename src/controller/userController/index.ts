@@ -12,13 +12,7 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import {
-  GetUserInfoDto,
-  PcLoginDto,
-  PcRegisterDto,
-  WechatLoginDto,
-  WechatRegisterDto,
-} from './request.dto';
+import { GetUserInfoDto, PcLoginDto, PcRegisterDto, WechatLoginDto, WechatRegisterDto, } from './request.dto';
 import { LoginResponseDto, RegisterResponseDto, UserInfoResponseDto } from './response.dto';
 
 @Controller('userinfo')
@@ -49,8 +43,7 @@ export class UserController {
       avatarUrl: registerDto.avatarUrl,
     });
 
-    const result: RegisterResponseDto = { message: '注册成功' };
-    return result;
+    return { message: '注册成功' };
   }
 
   /**
@@ -87,15 +80,14 @@ export class UserController {
       phone: registerDto.phone,
     });
 
-    const result: RegisterResponseDto = { message: '注册成功' };
-    return result;
+    return { message: '注册成功' };
   }
 
   /**
    * 查询用户信息
    * 支持通过ID或用户名查询
    */
-  @Get('info')
+  @Get('getUserInfoByUsername')
   @Public()
   @useDto(UserInfoResponseDto)
   public async getUserInfo(@Query() queryDto: GetUserInfoDto): Promise<UserInfoResponseDto> {
