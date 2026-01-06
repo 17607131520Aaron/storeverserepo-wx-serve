@@ -87,15 +87,15 @@ export class UserController {
 
   /**
    * 查询用户信息
-   * 支持通过ID或用户名查询
+   * 支持通过ID、用户名或微信OpenId查询
    */
   @Get('getUserInfoByUsername')
   @Public()
   @useDto(UserInfoResponseDto)
   public async getUserInfo(@Query() queryDto: GetUserInfoDto): Promise<UserInfoResponseDto> {
     // 至少需要提供一个查询参数
-    if (!queryDto.id && !queryDto.username) {
-      throw new BadRequestException('请提供用户ID或用户名');
+    if (!queryDto.id && !queryDto.username && !queryDto.wechatOpenId) {
+      throw new BadRequestException('请提供用户ID、用户名或微信OpenId');
     }
 
     let user: User | null = null;
@@ -107,6 +107,9 @@ export class UserController {
         throw new BadRequestException('用户ID格式不正确');
       }
       user = await this.userinfoService.findById(userId);
+    } else if (queryDto.wechatOpenId) {
+      // 使用微信OpenId查询
+      user = await this.userinfoService.findByOpenId(queryDto.wechatOpenId);
     } else if (queryDto.username) {
       // 使用用户名查询
       user = await this.userinfoService.findByUsername(queryDto.username);

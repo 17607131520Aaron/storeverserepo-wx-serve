@@ -100,4 +100,8 @@ export class GetUserInfoDto {
   @IsString()
   @IsOptional()
   public username?: string;
+
+  @IsString()
+  @IsOptional()
+  public wechatOpenId?: string;
 }
