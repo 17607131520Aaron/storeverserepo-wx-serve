@@ -12,7 +12,7 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import { GetUserInfoDto, PcLoginDto, PcRegisterDto, WechatLoginDto, WechatRegisterDto, } from './request.dto';
+import { GetUserInfoDto, PcLoginDto, PcRegisterDto, WechatLoginDto } from './request.dto';
 import { LoginResponseDto, RegisterResponseDto, UserInfoResponseDto } from './response.dto';
 
 @Controller('userinfo')
@@ -26,25 +26,16 @@ export class UserController {
   @Public()
   @useDto(LoginResponseDto)
   public async login(@Body() loginDto: WechatLoginDto): Promise<LoginResponseDto> {
+    // 支持账号密码登录，优先走账号密码
+    if (loginDto.username && loginDto.password) {
+      const token = await this.userinfoService.pcLogin({
+        username: loginDto.username,
+        password: loginDto.password,
+      });
+      return token as LoginResponseDto;
+    }
+
     const token = await this.userinfoService.wechatLogin(loginDto.code);
-    return token as LoginResponseDto;
-  }
-
-  /**
-   * 微信注册接口
-   * 微信注册成功后默认自动登录（返回token），因为微信code只能使用一次
-   */
-  @Post('wechatRegister')
-  @Public()
-  @useDto(LoginResponseDto)
-  public async register(@Body() registerDto: WechatRegisterDto): Promise<LoginResponseDto> {
-    const token = await this.userinfoService.wechatRegister({
-      code: registerDto.code,
-      nickName: registerDto.nickName,
-      avatarUrl: registerDto.avatarUrl,
-    });
-
-    // 微信注册后默认返回token（自动登录）
     return token as LoginResponseDto;
   }
 
@@ -67,8 +58,8 @@ export class UserController {
    */
   @Post('registerUser')
   @Public()
-  @useDto(RegisterResponseDto)
-  public async pcRegister(@Body() registerDto: PcRegisterDto): Promise<RegisterResponseDto> {
+  // @useDto(RegisterResponseDto)
+  public async pcRegister(@Body() registerDto: PcRegisterDto): Promise<boolean> {
     // 验证确认密码是否一致
     if (registerDto.password !== registerDto.confirmPassword) {
       throw new BadRequestException('两次输入的密码不一致');
@@ -80,9 +71,13 @@ export class UserController {
       realName: registerDto.realName,
       email: registerDto.email,
       phone: registerDto.phone,
+      // 如果传入了微信唯一ID，则在注册时一并绑定
+      wechatOpenId: registerDto.wechatOpenId,
+      wechatAvatarUrl: registerDto.wechatAvatarUrl,
+      wechatNickName: registerDto.wechatNickName,
     });
-
-    return { message: '注册成功' };
+    
+    return true
   }
 
   /**

@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -7,36 +6,27 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 /**
  * 微信登录请求DTO
  */
 export class WechatLoginDto {
-  @IsString()
-  @IsNotEmpty({ message: 'code不能为空' })
-  public code: string;
-}
-
-/**
- * 微信注册请求DTO
- */
-export class WechatRegisterDto {
+  @ValidateIf((o) => !o.username && !o.password)
   @IsString()
   @IsNotEmpty({ message: 'code不能为空' })
   public code: string;
 
+  @ValidateIf((o) => !o.code)
   @IsString()
-  @IsOptional()
-  public nickName?: string;
+  @IsNotEmpty({ message: '账号不能为空' })
+  public username?: string;
 
+  @ValidateIf((o) => !o.code)
   @IsString()
-  @IsOptional()
-  public avatarUrl?: string;
-
-  @IsBoolean()
-  @IsOptional()
-  public autoLogin?: boolean; // 是否自动登录，为true时返回token
+  @IsNotEmpty({ message: '密码不能为空' })
+  public password?: string;
 }
 
 /**
@@ -87,6 +77,27 @@ export class PcRegisterDto {
   @IsOptional()
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' })
   public phone?: string;
+
+  /**
+   * 可选的微信唯一ID（openid），如果传入则在注册时一并绑定
+   */
+  @IsString()
+  @IsOptional()
+  public wechatOpenId?: string;
+
+  /**
+   * 微信头像
+   */
+  @IsString()
+  @IsOptional()
+  public wechatAvatarUrl?: string;
+
+  /**
+   * 微信昵称
+   */
+  @IsString()
+  @IsOptional()
+  public wechatNickName?: string;
 }
 
 /**

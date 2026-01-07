@@ -5,7 +5,6 @@ import type {
   PcLoginParams,
   PcRegisterParams,
   WechatCode2SessionResponse,
-  WechatRegisterParams,
 } from '@/services/userinfo.interface';
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
@@ -49,49 +48,6 @@ export class UserInfoServiceImpl implements IUserInfoService {
     const token = await this.authService.signUser({
       sub: user.id,
       username: user.username ?? user.wechatOpenId,
-    });
-
-    return token;
-  }
-
-  /**
-   * 微信注册
-   */
-  public async wechatRegister(params: WechatRegisterParams): Promise<LoginToken> {
-    // 1. 调用微信接口获取openid
-    const sessionData = await this.code2Session(params.code);
-    const openid = sessionData.openid;
-
-    // 2. 检查用户是否已存在
-    const existingUser = await this.findByOpenId(openid);
-    if (existingUser) {
-      // 如果用户已存在，直接返回登录token
-      if (existingUser.status !== 1) {
-        throw new UnauthorizedException('账号已被禁用，请联系管理员');
-      }
-      const token = await this.authService.signUser({
-        sub: existingUser.id,
-        username: existingUser.username ?? existingUser.wechatOpenId,
-      });
-      return token;
-    }
-
-    // 3. 创建新用户
-    const newUserData: Partial<User> = {
-      username: `wx_${openid.substring(0, 10)}_${Date.now()}`, // 生成唯一用户名
-      wechatOpenId: openid,
-      wechatNickName: params.nickName ?? undefined,
-      wechatAvatarUrl: params.avatarUrl ?? undefined,
-      password: '', // 微信登录不需要密码
-      status: 1, // 默认启用
-    };
-    const newUser = this.userRepository.create(newUserData);
-    const savedUser = await this.userRepository.save(newUser);
-
-    // 4. 生成JWT token
-    const token = await this.authService.signUser({
-      sub: savedUser.id,
-      username: savedUser.username,
     });
 
     return token;
@@ -189,6 +145,16 @@ export class UserInfoServiceImpl implements IUserInfoService {
       }
     }
 
+    // 3.5 如果提供了微信唯一ID，检查是否已被使用
+    if (params.wechatOpenId) {
+      const existingWechatUser = await this.userRepository.findOne({
+        where: { wechatOpenId: params.wechatOpenId },
+      });
+      if (existingWechatUser) {
+        throw new BadRequestException('该微信账号已绑定其他用户');
+      }
+    }
+
     // 4. 加密密码
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(params.password, saltRounds);
@@ -200,6 +166,10 @@ export class UserInfoServiceImpl implements IUserInfoService {
       realName: params.realName,
       email: params.email ?? undefined,
       phone: params.phone ?? undefined,
+      // 如果传入了微信唯一ID，则一并绑定
+      wechatOpenId: params.wechatOpenId ?? undefined,
+      wechatAvatarUrl: params.wechatAvatarUrl ?? undefined,
+      wechatNickName: params.wechatNickName ?? undefined,
       status: 1, // 默认启用
     };
     const newUser = this.userRepository.create(newUserData);

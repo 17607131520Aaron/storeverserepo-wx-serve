@@ -10,15 +10,6 @@ export interface WechatCode2SessionResponse {
 }
 
 /**
- * 微信注册参数
- */
-export interface WechatRegisterParams {
-  code: string;
-  nickName?: string;
-  avatarUrl?: string;
-}
-
-/**
  * PC端登录参数
  */
 export interface PcLoginParams {
@@ -35,6 +26,18 @@ export interface PcRegisterParams {
   realName: string;
   email?: string;
   phone?: string;
+  /**
+   * 可选的微信唯一ID（openid）
+   */
+  wechatOpenId?: string;
+  /**
+   * 可选的微信头像
+   */
+  wechatAvatarUrl?: string;
+  /**
+   * 可选的微信昵称
+   */
+  wechatNickName?: string;
 }
 
 export interface IUserInfoService {
@@ -44,13 +47,6 @@ export interface IUserInfoService {
    * @returns 登录token
    */
   wechatLogin(code: string): Promise<LoginToken>;
-
-  /**
-   * 微信注册
-   * @param params 微信注册参数
-   * @returns 登录token
-   */
-  wechatRegister(params: WechatRegisterParams): Promise<LoginToken>;
 
   /**
    * PC端登录
