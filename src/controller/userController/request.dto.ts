@@ -33,16 +33,26 @@ export class WechatLoginDto {
  * PC端登录请求DTO
  */
 export class PcLoginDto {
+  @ValidateIf((o) => !o.wechatOpenId)
   @IsString()
   @IsNotEmpty({ message: '账号不能为空' })
   @MinLength(3, { message: '账号长度至少3个字符' })
   @MaxLength(20, { message: '账号长度不能超过20个字符' })
-  public username: string;
+  public username?: string;
 
+  @ValidateIf((o) => !o.wechatOpenId)
   @IsString()
   @IsNotEmpty({ message: '密码不能为空' })
   @MinLength(6, { message: '密码长度至少6个字符' })
-  public password: string;
+  public password?: string;
+
+  /**
+   * 可选的微信唯一ID（openid），若传入则直接用openid登录
+   */
+  @ValidateIf((o) => !o.username && !o.password)
+  @IsString()
+  @IsNotEmpty({ message: '微信OpenId不能为空' })
+  public wechatOpenId?: string;
 }
 
 /**

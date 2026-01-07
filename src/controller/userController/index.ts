@@ -12,41 +12,30 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import { GetUserInfoDto, PcLoginDto, PcRegisterDto, WechatLoginDto } from './request.dto';
-import { LoginResponseDto, RegisterResponseDto, UserInfoResponseDto } from './response.dto';
+import { GetUserInfoDto, PcLoginDto, PcRegisterDto } from './request.dto';
+import { LoginResponseDto, UserInfoResponseDto } from './response.dto';
 
 @Controller('userinfo')
 export class UserController {
   constructor(@Inject('IUserInfoService') private readonly userinfoService: IUserInfoService) {}
 
   /**
-   * 微信登录接口
-   */
-  @Post('wechatLogin')
-  @Public()
-  @useDto(LoginResponseDto)
-  public async login(@Body() loginDto: WechatLoginDto): Promise<LoginResponseDto> {
-    // 支持账号密码登录，优先走账号密码
-    if (loginDto.username && loginDto.password) {
-      const token = await this.userinfoService.pcLogin({
-        username: loginDto.username,
-        password: loginDto.password,
-      });
-      return token as LoginResponseDto;
-    }
-
-    const token = await this.userinfoService.wechatLogin(loginDto.code);
-    return token as LoginResponseDto;
-  }
-
-  /**
-   * PC端登录接口
+   * 登录接口
    */
   @Post('userLogin')
   @Public()
   @useDto(LoginResponseDto)
-  public async pcLogin(@Body() loginDto: PcLoginDto): Promise<LoginResponseDto> {
-    const token = await this.userinfoService.pcLogin({
+  public async handleUserLogin(@Body() loginDto: PcLoginDto): Promise<LoginResponseDto> {
+    // 若传入微信OpenId，则直接通过OpenId登录
+    if (loginDto.wechatOpenId) {
+      const token = await this.userinfoService.loginWithCredentialsOrOpenId({
+        wechatOpenId: loginDto.wechatOpenId,
+      });
+      return token as LoginResponseDto;
+    }
+
+    // 否则使用账号密码登录
+    const token = await this.userinfoService.loginWithCredentialsOrOpenId({
       username: loginDto.username,
       password: loginDto.password,
     });
@@ -54,18 +43,18 @@ export class UserController {
   }
 
   /**
-   * PC端注册接口
+   * 注册接口
    */
   @Post('registerUser')
   @Public()
   // @useDto(RegisterResponseDto)
-  public async pcRegister(@Body() registerDto: PcRegisterDto): Promise<boolean> {
+  public async handleUserRegistration(@Body() registerDto: PcRegisterDto): Promise<boolean> {
     // 验证确认密码是否一致
     if (registerDto.password !== registerDto.confirmPassword) {
       throw new BadRequestException('两次输入的密码不一致');
     }
 
-    await this.userinfoService.pcRegister({
+    await this.userinfoService.registerUserAccount({
       username: registerDto.username,
       password: registerDto.password,
       realName: registerDto.realName,
@@ -76,8 +65,8 @@ export class UserController {
       wechatAvatarUrl: registerDto.wechatAvatarUrl,
       wechatNickName: registerDto.wechatNickName,
     });
-    
-    return true
+
+    return true;
   }
 
   /**
@@ -87,7 +76,7 @@ export class UserController {
   @Get('getUserInfoByUsername')
   @Public()
   @useDto(UserInfoResponseDto)
-  public async getUserInfo(@Query() queryDto: GetUserInfoDto): Promise<UserInfoResponseDto> {
+  public async fetchUserInfo(@Query() queryDto: GetUserInfoDto): Promise<UserInfoResponseDto> {
     // 至少需要提供一个查询参数
     if (!queryDto.id && !queryDto.username && !queryDto.wechatOpenId) {
       throw new BadRequestException('请提供用户ID、用户名或微信OpenId');
@@ -101,13 +90,13 @@ export class UserController {
       if (Number.isNaN(userId)) {
         throw new BadRequestException('用户ID格式不正确');
       }
-      user = await this.userinfoService.findById(userId);
+      user = await this.userinfoService.findUserById(userId);
     } else if (queryDto.wechatOpenId) {
       // 使用微信OpenId查询
-      user = await this.userinfoService.findByOpenId(queryDto.wechatOpenId);
+      user = await this.userinfoService.findUserByOpenId(queryDto.wechatOpenId);
     } else if (queryDto.username) {
       // 使用用户名查询
-      user = await this.userinfoService.findByUsername(queryDto.username);
+      user = await this.userinfoService.findUserByUsername(queryDto.username);
     }
 
     if (!user) {

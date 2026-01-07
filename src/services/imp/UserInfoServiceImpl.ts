@@ -28,13 +28,13 @@ export class UserInfoServiceImpl implements IUserInfoService {
   /**
    * 微信登录
    */
-  public async wechatLogin(code: string): Promise<LoginToken> {
+  public async loginWithWechatCode(code: string): Promise<LoginToken> {
     // 1. 调用微信接口获取openid
     const sessionData = await this.code2Session(code);
     const openid = sessionData.openid;
 
     // 2. 查找用户是否存在
-    const user = await this.findByOpenId(openid);
+    const user = await this.findUserByOpenId(openid);
 
     if (!user) {
       throw new UnauthorizedException('用户未注册，请先完成注册');
@@ -56,7 +56,7 @@ export class UserInfoServiceImpl implements IUserInfoService {
   /**
    * 通过openid查找用户
    */
-  public async findByOpenId(openid: string): Promise<User | null> {
+  public async findUserByOpenId(openid: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { wechatOpenId: openid },
     });
@@ -65,7 +65,7 @@ export class UserInfoServiceImpl implements IUserInfoService {
   /**
    * 通过用户ID查找用户信息
    */
-  public async findById(userId: number): Promise<User | null> {
+  public async findUserById(userId: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: { id: userId },
     });
@@ -74,18 +74,38 @@ export class UserInfoServiceImpl implements IUserInfoService {
   /**
    * 通过用户名查找用户信息
    */
-  public async findByUsername(username: string): Promise<User | null> {
+  public async findUserByUsername(username: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { username },
     });
   }
 
   /**
-   * PC端登录
+   * PC端登录（账号密码或微信OpenId）
    */
-  public async pcLogin(params: PcLoginParams): Promise<LoginToken> {
+  public async loginWithCredentialsOrOpenId(params: PcLoginParams): Promise<LoginToken> {
+    // 如果传入了微信openid，直接通过openid登录
+    if (params.wechatOpenId) {
+      const userByOpenId = await this.findUserByOpenId(params.wechatOpenId);
+      if (!userByOpenId) {
+        throw new UnauthorizedException('用户不存在或未绑定微信');
+      }
+      if (userByOpenId.status !== 1) {
+        throw new UnauthorizedException('账号已被禁用，请联系管理员');
+      }
+      return this.authService.signUser({
+        sub: userByOpenId.id,
+        username: userByOpenId.username ?? userByOpenId.wechatOpenId,
+      });
+    }
+
+    // 未提供openid，走账号密码登录
+    if (!params.username || !params.password) {
+      throw new UnauthorizedException('账号或密码不能为空');
+    }
+
     // 1. 查找用户
-    const user = await this.findByUsername(params.username);
+    const user = await this.findUserByUsername(params.username);
     if (!user) {
       throw new UnauthorizedException('账号或密码错误');
     }
@@ -96,7 +116,7 @@ export class UserInfoServiceImpl implements IUserInfoService {
     }
 
     // 3. 验证密码
-    // 如果用户没有设置密码（可能是微信用户），则不允许PC端登录
+    // 如果用户没有设置密码（可能是微信用户），则不允许账号密码登录
     if (!user.password) {
       throw new UnauthorizedException('该账号未设置密码，请使用微信登录');
     }
@@ -107,20 +127,18 @@ export class UserInfoServiceImpl implements IUserInfoService {
     }
 
     // 4. 生成JWT token
-    const token = await this.authService.signUser({
+    return this.authService.signUser({
       sub: user.id,
       username: user.username,
     });
-
-    return token;
   }
 
   /**
    * PC端注册
    */
-  public async pcRegister(params: PcRegisterParams): Promise<void> {
+  public async registerUserAccount(params: PcRegisterParams): Promise<void> {
     // 1. 检查账号是否已存在
-    const existingUser = await this.findByUsername(params.username);
+    const existingUser = await this.findUserByUsername(params.username);
     if (existingUser) {
       throw new BadRequestException('该账号已被注册，请使用其他账号');
     }
